@@ -228,15 +228,12 @@
                 "summary": "Verify OTP",
                 "parameters": [
                     {
-                        "description": "OTP verification payload",
+                        "description": "Verify OTP object",
                         "name": "data",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/main.OTPPayload"
                         }
                     }
                 ],
@@ -264,6 +261,22 @@
         }
     },
     "definitions": {
+        "main.OTPPayload": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "otp": {
+                            "type": "string"
+                        },
+                        "phone_number": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "main.OTPResponse": {
             "type": "object",
             "properties": {

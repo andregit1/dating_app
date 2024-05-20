@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  main.OTPPayload:
+    properties:
+      data:
+        properties:
+          otp:
+            type: string
+          phone_number:
+            type: string
+        type: object
+    type: object
   main.OTPResponse:
     properties:
       otp:
@@ -196,14 +206,12 @@ paths:
       - application/json
       description: Verify the OTP entered by the user and create a session.
       parameters:
-      - description: OTP verification payload
+      - description: Verify OTP object
         in: body
         name: data
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/main.OTPPayload'
       produces:
       - application/json
       responses:
