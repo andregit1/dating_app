@@ -61,7 +61,7 @@ paths:
       - application/json
       description: Login with the provided phone number and get OTP.
       parameters:
-      - description: Login Object payload
+      - description: Login Object
         in: body
         name: data
         required: true
@@ -117,7 +117,7 @@ paths:
       - application/json
       description: Register a new user with the provided phone number.
       parameters:
-      - description: Signup Object payload
+      - description: Signup Object
         in: body
         name: data
         required: true
@@ -143,7 +143,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Perform a swipe action by the user.
+      description: Swipe left or right on a profile.
       parameters:
       - description: Swipe object
         in: body
@@ -155,7 +155,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Swipe action performed successfully
+          description: Swipe recorded successfully
           schema:
             type: string
         "400":
@@ -166,7 +166,7 @@ paths:
           description: Internal server error
           schema:
             type: string
-      summary: Perform a swipe action
+      summary: Swipe
   /users:
     get:
       consumes:
@@ -190,4 +190,34 @@ paths:
           schema:
             type: string
       summary: Get a list of users based on preferences
+  /verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP entered by the user and create a session.
+      parameters:
+      - description: OTP verification payload
+        in: body
+        name: data
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP verified successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid OTP
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Verify OTP
 swagger: "2.0"

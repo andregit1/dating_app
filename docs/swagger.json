@@ -21,7 +21,7 @@
                 "summary": "Login",
                 "parameters": [
                     {
-                        "description": "Login Object payload",
+                        "description": "Login Object",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -107,7 +107,7 @@
                 "summary": "Register a new user",
                 "parameters": [
                     {
-                        "description": "Signup Object payload",
+                        "description": "Signup Object",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -140,14 +140,14 @@
         },
         "/swipe": {
             "post": {
-                "description": "Perform a swipe action by the user.",
+                "description": "Swipe left or right on a profile.",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Perform a swipe action",
+                "summary": "Swipe",
                 "parameters": [
                     {
                         "description": "Swipe object",
@@ -161,7 +161,7 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Swipe action performed successfully",
+                        "description": "Swipe recorded successfully",
                         "schema": {
                             "type": "string"
                         }
@@ -203,6 +203,52 @@
                     },
                     "400": {
                         "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/verify-otp": {
+            "post": {
+                "description": "Verify the OTP entered by the user and create a session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Verify OTP",
+                "parameters": [
+                    {
+                        "description": "OTP verification payload",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OTP verified successfully",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid OTP",
                         "schema": {
                             "type": "string"
                         }

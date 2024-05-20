@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	db      *sql.DB
-	store   = sessions.NewCookieStore([]byte("super-secret-key"))
+	db    *sql.DB
+	store = sessions.NewCookieStore([]byte("super-secret-key"))
 )
 
 type User struct {
@@ -41,7 +41,6 @@ type OTPResponse struct {
 	OTP string `json:"otp"`
 }
 
-// Profile represents a user's profile
 type Profile struct {
 	ID       int    `json:"id"`
 	UserID   int    `json:"-"`
@@ -51,7 +50,6 @@ type Profile struct {
 	PhotoURL string `json:"photo_url"`
 }
 
-// Swipe represents a swipe action by a user
 type Swipe struct {
 	ID        int       `json:"id"`
 	SwiperID  int       `json:"-"`
@@ -60,7 +58,6 @@ type Swipe struct {
 	SwipeDate time.Time `json:"swipe_date"`
 }
 
-// Purchase represents a premium purchase by a user
 type Purchase struct {
 	ID           int       `json:"id"`
 	UserID       int       `json:"-"`
@@ -80,10 +77,16 @@ type Preference struct {
 }
 
 type Payload struct {
-    Data struct {
-        PhoneNumber string `json:"phone_number"`
-    } `json:"data"`
+	Data struct {
+		PhoneNumber string `json:"phone_number"`
+	} `json:"data"`
 }
+
+// type OTPPayload struct {
+// 	Data struct {
+// 		OTP string `json:"otp"`
+// 	} `json:"data"`
+// }
 
 // Generate a 6-digit OTP
 func generateOTP() string {
@@ -126,7 +129,7 @@ func main() {
 	// Define HTTP routes and their corresponding handlers
 	http.HandleFunc("/signup", signupHandler)     // @router /signup [post]
 	http.HandleFunc("/login", loginHandler)       // @router /login [post]
-	// http.HandleFunc("/verify-otp", verifyOTPHandler) // @router /verify-otp [post]
+	http.HandleFunc("/verify-otp", verifyOTPHandler) // @router /verify-otp [post]
 	http.HandleFunc("/swipe", swipeHandler)       // @router /swipe [post]
 	http.HandleFunc("/purchase", purchaseHandler) // @router /purchase [post]
 
@@ -139,7 +142,7 @@ func main() {
 	))
 
 	// Start the HTTP server
-	serverAddr := ":8080"
+	serverAddr := "localhost:8080"
 	go func() {
 		log.Printf("Server is starting and listening on %s", serverAddr)
 		if err := http.ListenAndServe(serverAddr, nil); err != nil {
@@ -160,7 +163,7 @@ func main() {
 // @Description Register a new user with the provided phone number.
 // @Accept json
 // @Produce json
-// @Param data body Payload true "Signup Object payload"
+// @Param data body Payload true "Signup Object"
 // @Success 201 {object} OTPResponse "OTP generated successfully"
 // @Failure 400 {string} string "Invalid request format"
 // @Failure 500 {string} string "Internal server error"
@@ -173,7 +176,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    phoneNumber := payload.Data.PhoneNumber
+	phoneNumber := payload.Data.PhoneNumber
 
 	result, err := db.Exec("INSERT INTO users (phone_number) VALUES ($1)", phoneNumber)
 	if err != nil {
@@ -205,21 +208,21 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 // @Description Login with the provided phone number and get OTP.
 // @Accept json
 // @Produce json
-// @Param data body Payload true "Login Object payload"
+// @Param data body Payload true "Login Object"
 // @Success 200 {object} OTPResponse "OTP generated successfully"
 // @Failure 400 {string} string "Invalid request format"
 // @Failure 401 {string} string "Invalid phone number"
 // @Router /login [post]
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	var payload Payload
-	
-    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var dbUser User
-    phoneNumber := payload.Data.PhoneNumber
+	phoneNumber := payload.Data.PhoneNumber
 	err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&dbUser.ID)
 	if err != nil {
 		http.Error(w, "invalid phone number", http.StatusUnauthorized)
@@ -239,38 +242,91 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(OTPResponse{OTP: otp})
 }
 
-// @Summary Perform a swipe action
-// @Description Perform a swipe action by the user.
+// VerifyOTPHandler handles OTP verification
+// @Summary Verify OTP
+// @Description Verify the OTP entered by the user and create a session.
+// @Accept json
+// @Produce json
+// @Param data body map[string]string true "OTP verification payload"
+// @Success 200 {string} string "OTP verified successfully"
+// @Failure 400 {string} string "Invalid OTP"
+// @Failure 500 {string} string "Internal server error"
+// @Router /verify-otp [post]
+func verifyOTPHandler(w http.ResponseWriter, r *http.Request) {
+	var payload map[string]string
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	phoneNumber := payload["phone_number"]
+	otp := payload["otp"]
+
+	var userID int
+	var otpHash string
+	err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&userID)
+	if err != nil {
+		http.Error(w, "Invalid phone number", http.StatusBadRequest)
+		return
+	}
+
+	err = db.QueryRow("SELECT otp_hash FROM otp_auth WHERE user_id = $1", userID).Scan(&otpHash)
+	if err != nil {
+		http.Error(w, "OTP not found", http.StatusBadRequest)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(otpHash), []byte(otp))
+	if err != nil {
+		http.Error(w, "Invalid OTP", http.StatusBadRequest)
+		return
+	}
+
+	// OTP verified, create session
+	session, _ := store.Get(r, "session-name")
+	session.Values["user_id"] = userID
+	err = session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OTP verified successfully"))
+}
+
+// swipeHandler handles swiping left or right
+// @Summary Swipe
+// @Description Swipe left or right on a profile.
 // @Accept json
 // @Produce json
 // @Param swipe body Swipe true "Swipe object"
-// @Success 201 {string} string "Swipe action performed successfully"
+// @Success 201 {string} string "Swipe recorded successfully"
 // @Failure 400 {string} string "Invalid request format"
 // @Failure 500 {string} string "Internal server error"
 // @Router /swipe [post]
 func swipeHandler(w http.ResponseWriter, r *http.Request) {
 	var swipe Swipe
-	
-    if err := json.NewDecoder(r.Body).Decode(&swipe); err != nil {
+
+	if err := json.NewDecoder(r.Body).Decode(&swipe); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Check if the user has exceeded the daily swipe limit
+	// Check if user has exceeded the daily swipe limit
 	if err := checkDailySwipeLimit(swipe.SwiperID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Check if the profile has already been swiped by the user on the same day
+	// Check if user has already swiped this profile today
 	if err := checkDuplicateSwipe(swipe.SwiperID, swipe.ProfileID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Perform the swipe action
-	_, err := db.Exec("INSERT INTO swipes (swiper_id, profile_id, swipe_type, swipe_date) VALUES ($1, $2, $3, $4)",
-		swipe.SwiperID, swipe.ProfileID, swipe.SwipeType, time.Now())
+	_, err := db.Exec("INSERT INTO swipes (swiper_id, profile_id, swipe_type, swipe_date) VALUES ($1, $2, $3, $4)", swipe.SwiperID, swipe.ProfileID, swipe.SwipeType, time.Now())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -309,6 +365,7 @@ func checkDuplicateSwipe(userID, profileID int) error {
 	return nil
 }
 
+// purchaseHandler handles premium membership purchase
 // @Summary Purchase premium
 // @Description Purchase premium membership.
 // @Accept json
@@ -320,6 +377,7 @@ func checkDuplicateSwipe(userID, profileID int) error {
 // @Router /purchase [post]
 func purchaseHandler(w http.ResponseWriter, r *http.Request) {
 	var purchase Purchase
+
 	if err := json.NewDecoder(r.Body).Decode(&purchase); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -335,6 +393,7 @@ func purchaseHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// getUsersHandler handles retrieving users based on preferences
 // @Summary Get a list of users based on preferences
 // @Description Get a list of users based on the logged-in user's preferences.
 // @Accept json
@@ -372,8 +431,8 @@ func getUsersHandler(w http.ResponseWriter, r *http.Request) {
 // getUserPreferences retrieves the preferences of the logged-in user
 func getUserPreferences(userID int) (Preference, error) {
 	var preferences Preference
-	
-    err := db.QueryRow("SELECT id, user_id, date_mode, bff_mode, preferred_gender, min_age, max_age, created_at, updated_at FROM preferences WHERE user_id = $1", userID).Scan(
+
+	err := db.QueryRow("SELECT id, user_id, date_mode, bff_mode, preferred_gender, min_age, max_age, created_at, updated_at FROM preferences WHERE user_id = $1", userID).Scan(
 		&preferences.ID, &preferences.UserID, &preferences.DateMode, &preferences.BFFMode, &preferences.PreferredGender, &preferences.MinAge, &preferences.MaxAge, &preferences.CreatedAt, &preferences.UpdatedAt)
 	if err != nil {
 		return preferences, err
@@ -410,8 +469,8 @@ func getUsersBasedOnPreferences(preferences Preference) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var user User
-		
-        if err := rows.Scan(&user.ID, &user.PhoneNumber, &user.IsPremium, &user.Verified, &user.IsDeleted, &user.SignupAt, &user.LoginAt, &user.LogoutAt); err != nil {
+
+		if err := rows.Scan(&user.ID, &user.PhoneNumber, &user.IsPremium, &user.Verified, &user.IsDeleted, &user.SignupAt, &user.LoginAt, &user.LogoutAt); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
