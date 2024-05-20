@@ -170,39 +170,37 @@ func main() {
 // @Failure 500 {string} string "Internal server error"
 // @Router /signup [post]
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	var payload Payload
+  var payload Payload
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+  if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+      http.Error(w, err.Error(), http.StatusBadRequest)
+      return
+  }
 
-	phoneNumber := payload.Data.PhoneNumber
+  phoneNumber := payload.Data.PhoneNumber
 
-	result, err := db.Exec("INSERT INTO users (phone_number) VALUES ($1)", phoneNumber)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+  var userID int // Assuming your user ID column is of type SERIAL or BIGSERIAL
 
-	userID, err := result.LastInsertId()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+  // Inserting into the users table and returning the user ID
+  err := db.QueryRow("INSERT INTO users (phone_number) VALUES ($1) RETURNING id", phoneNumber).Scan(&userID)
+  if err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+  }
 
-	otp := generateOTP()
-	err = saveOTP(int(userID), otp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+  otp := generateOTP()
+  err = saveOTP(userID, otp)
+  if err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+  }
 
-	// Here, you would send the OTP to the user's phone number via an SMS service
+  // Here, you would send the OTP to the user's phone number via an SMS service
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(OTPResponse{OTP: otp})
+  w.WriteHeader(http.StatusCreated)
+  json.NewEncoder(w).Encode(OTPResponse{OTP: otp})
 }
+
 
 // LoginHandler handles user login
 // @Summary Login
