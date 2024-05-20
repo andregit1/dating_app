@@ -131,10 +131,10 @@ func main() {
 	http.HandleFunc("/signup", signupHandler)     // @router /signup [post]
 	http.HandleFunc("/login", loginHandler)       // @router /login [post]
 	http.HandleFunc("/verify-otp", verifyOTPHandler) // @router /verify-otp [post]
-	http.HandleFunc("/swipe", swipeHandler)       // @router /swipe [post]
-	http.HandleFunc("/purchase", purchaseHandler) // @router /purchase [post]
 
 	// Restrict
+  http.Handle("/swipe", authMiddleware(http.HandlerFunc(swipeHandler)))       // @router /swipe [post]
+	http.Handle("/purchase", authMiddleware(http.HandlerFunc(purchaseHandler))) // @router /purchase [post]
 	http.Handle("/users", authMiddleware(http.HandlerFunc(getUsersHandler))) // @router /users [get]
 
 	// Serve Swagger UI
