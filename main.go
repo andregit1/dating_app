@@ -82,11 +82,12 @@ type Payload struct {
 	} `json:"data"`
 }
 
-// type OTPPayload struct {
-// 	Data struct {
-// 		OTP string `json:"otp"`
-// 	} `json:"data"`
-// }
+type OTPPayload struct {
+	Data struct {
+		OTP         string `json:"otp"`
+		PhoneNumber string `json:"phone_number"`
+	} `json:"data"`
+}
 
 // Generate a 6-digit OTP
 func generateOTP() string {
@@ -133,7 +134,7 @@ func main() {
 	http.HandleFunc("/swipe", swipeHandler)       // @router /swipe [post]
 	http.HandleFunc("/purchase", purchaseHandler) // @router /purchase [post]
 
-	// Protected route for getting users
+	// Restrict
 	http.Handle("/users", authMiddleware(http.HandlerFunc(getUsersHandler))) // @router /users [get]
 
 	// Serve Swagger UI
@@ -247,21 +248,21 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 // @Description Verify the OTP entered by the user and create a session.
 // @Accept json
 // @Produce json
-// @Param data body map[string]string true "OTP verification payload"
+// @Param data body OTPPayload true "Verify OTP object"
 // @Success 200 {string} string "OTP verified successfully"
 // @Failure 400 {string} string "Invalid OTP"
 // @Failure 500 {string} string "Internal server error"
 // @Router /verify-otp [post]
 func verifyOTPHandler(w http.ResponseWriter, r *http.Request) {
-	var payload map[string]string
+	var payload OTPPayload
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	phoneNumber := payload["phone_number"]
-	otp := payload["otp"]
+	phoneNumber := payload.Data.PhoneNumber
+	otp := payload.Data.OTP
 
 	var userID int
 	var otpHash string
@@ -296,7 +297,7 @@ func verifyOTPHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OTP verified successfully"))
 }
 
-// swipeHandler handles swiping left or right
+// SwipeHandler handles swiping left or right
 // @Summary Swipe
 // @Description Swipe left or right on a profile.
 // @Accept json
