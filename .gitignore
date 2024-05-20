@@ -1,0 +1,13 @@
+# Ignore the .env file
+.env
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build/ and vendor/ directories
+*.test
+/vendor/
+/build/
