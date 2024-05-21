@@ -1,62 +1,112 @@
 basePath: /
 definitions:
-  main.OTPPayload:
+  model.Card:
     properties:
-      data:
-        properties:
-          otp:
-            type: string
-          phone_number:
-            type: string
-        type: object
-    type: object
-  main.OTPResponse:
-    properties:
-      otp:
-        type: string
-    type: object
-  main.Payload:
-    properties:
-      data:
-        properties:
-          phone_number:
-            type: string
-        type: object
-    type: object
-  main.Purchase:
-    properties:
-      id:
+      age:
         type: integer
-      purchase_date:
+      bio:
         type: string
-    type: object
-  main.Swipe:
-    properties:
-      id:
+      name:
+        type: string
+      photo_url:
+        type: string
+      user_id:
         type: integer
-      swipe_date:
-        type: string
-      swipe_type:
-        type: string
+      verified:
+        type: boolean
     type: object
-  main.User:
+  model.Package:
     properties:
+      created_at:
+        type: string
+      currency:
+        type: string
+      feature:
+        type: string
       id:
         type: integer
       is_deleted:
         type: boolean
-      is_premium:
-        type: boolean
-      login_at:
+      name:
         type: string
-      logout_at:
+      price:
+        type: number
+      updated_at:
         type: string
-      phone_number:
+    type: object
+  model.Purchase:
+    properties:
+      created_at:
         type: string
-      signup_at:
+      id:
+        type: integer
+      package_id:
+        type: integer
+      purchase_date:
         type: string
-      verified:
-        type: boolean
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  payload.Entry:
+    properties:
+      data:
+        properties:
+          phone_number:
+            example: "1234567890"
+            type: string
+        type: object
+    type: object
+  payload.OTP:
+    properties:
+      data:
+        properties:
+          otp:
+            example: "123456"
+            type: string
+          phone_number:
+            example: "1234567890"
+            type: string
+        type: object
+    type: object
+  payload.Package:
+    properties:
+      data:
+        properties:
+          currency:
+            example: USD
+            type: string
+          feature:
+            example: Sample Feature
+            type: string
+          name:
+            example: Sample Package
+            type: string
+          price:
+            example: 9.99
+            type: number
+        type: object
+    type: object
+  payload.Swipe:
+    properties:
+      data:
+        properties:
+          profile_id:
+            example: 456
+            type: integer
+          swipe_type:
+            example: like
+            type: string
+          swiper_id:
+            example: 123
+            type: integer
+        type: object
+    type: object
+  response.OTP:
+    properties:
+      otp:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -65,6 +115,29 @@ info:
   title: Dating App API
   version: "1.0"
 paths:
+  /cards:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of cards based on the logged-in user's preferences.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of cards matching user's preferences
+          schema:
+            items:
+              $ref: '#/definitions/model.Card'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a list of cards based on user preferences
   /login:
     post:
       consumes:
@@ -76,14 +149,14 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/main.Payload'
+          $ref: '#/definitions/payload.Entry'
       produces:
       - application/json
       responses:
         "200":
           description: OTP generated successfully
           schema:
-            $ref: '#/definitions/main.OTPResponse'
+            $ref: '#/definitions/response.OTP'
         "400":
           description: Invalid request format
           schema:
@@ -93,6 +166,127 @@ paths:
           schema:
             type: string
       summary: Login
+      tags:
+      - Users
+  /packages:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all packages.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of packages
+          schema:
+            items:
+              $ref: '#/definitions/model.Package'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get all packages
+      tags:
+      - Packages
+  /packages/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new package.
+      parameters:
+      - description: Package object
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/payload.Package'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Package created successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request format
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a new package
+      tags:
+      - Packages
+  /packages/delete/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Soft delete a package by setting is_deleted field to true.
+      parameters:
+      - description: Package ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Package deleted successfully
+          schema:
+            type: string
+        "404":
+          description: Package not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Soft delete a package
+      tags:
+      - Packages
+  /packages/edit/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update an existing package by ID.
+      parameters:
+      - description: Package ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Package object
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/payload.Package'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Package updated successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request format
+          schema:
+            type: string
+        "404":
+          description: Package not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a package
+      tags:
+      - Packages
   /purchase:
     post:
       consumes:
@@ -104,7 +298,7 @@ paths:
         name: purchase
         required: true
         schema:
-          $ref: '#/definitions/main.Purchase'
+          $ref: '#/definitions/model.Purchase'
       produces:
       - application/json
       responses:
@@ -132,14 +326,14 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/main.Payload'
+          $ref: '#/definitions/payload.Entry'
       produces:
       - application/json
       responses:
         "201":
           description: OTP generated successfully
           schema:
-            $ref: '#/definitions/main.OTPResponse'
+            $ref: '#/definitions/response.OTP'
         "400":
           description: Invalid request format
           schema:
@@ -149,6 +343,8 @@ paths:
           schema:
             type: string
       summary: Register a new user
+      tags:
+      - Users
   /swipe:
     post:
       consumes:
@@ -157,10 +353,10 @@ paths:
       parameters:
       - description: Swipe object
         in: body
-        name: swipe
+        name: data
         required: true
         schema:
-          $ref: '#/definitions/main.Swipe'
+          $ref: '#/definitions/payload.Swipe'
       produces:
       - application/json
       responses:
@@ -177,29 +373,6 @@ paths:
           schema:
             type: string
       summary: Swipe
-  /users:
-    get:
-      consumes:
-      - application/json
-      description: Get a list of users based on the logged-in user's preferences.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of users matching preferences
-          schema:
-            items:
-              $ref: '#/definitions/main.User'
-            type: array
-        "400":
-          description: Invalid request
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Get a list of users based on preferences
   /verify-otp:
     post:
       consumes:
@@ -211,7 +384,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/main.OTPPayload'
+          $ref: '#/definitions/payload.OTP'
       produces:
       - application/json
       responses:
@@ -228,4 +401,6 @@ paths:
           schema:
             type: string
       summary: Verify OTP
+      tags:
+      - Users
 swagger: "2.0"
