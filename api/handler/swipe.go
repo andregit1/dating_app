@@ -25,41 +25,39 @@ import (
 // @Failure 400 {string} string "Invalid request format"
 // @Failure 500 {string} string "Internal server error"
 // @Router /swipe [post]
-func Swipe(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	var swipe model.Swipe
-	
-	if err := json.NewDecoder(r.Body).Decode(&swipe); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func Swipe(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var swipe model.Swipe
+		
+		if err := json.NewDecoder(r.Body).Decode(&swipe); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// Get the current user ID from the context
-	userID, err := middleware.CurrentUserID(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	swipe.SwiperID = userID
+		// Get the current user ID from the context
+		userID := middleware.CurrentUserID(r)
+		swipe.SwiperID = userID
 
-	// Check if user has exceeded the daily swipe limit
-	if err := checkDailySwipeLimit(db, swipe.SwiperID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		// Check if user has exceeded the daily swipe limit
+		if err := checkDailySwipeLimit(db, swipe.SwiperID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// Check if user has already swiped this profile today
-	if err := checkDuplicateSwipe(db, swipe.SwiperID, swipe.ProfileID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		// Check if user has already swiped this profile today
+		if err := checkDuplicateSwipe(db, swipe.SwiperID, swipe.ProfileID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	_, err = db.Exec("INSERT INTO swipes (swiper_id, profile_id, swipe_type, swipe_date) VALUES ($1, $2, $3, $4)", swipe.SwiperID, swipe.ProfileID, swipe.SwipeType, time.Now())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		_, err := db.Exec("INSERT INTO swipes (swiper_id, profile_id, swipe_type, swipe_date) VALUES ($1, $2, $3, $4)", swipe.SwiperID, swipe.ProfileID, swipe.SwipeType, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusCreated)
+	}
 }
 
 // checkDailySwipeLimit checks if the user has exceeded the daily swipe limit

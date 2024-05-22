@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -27,44 +26,51 @@ func isUserLoggedIn(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func Routes(db *sql.DB) {
-	// wrapHandler is a helper function that wraps an HTTP handler with a database connection and optional authentication middleware
-	wrapHandler := func(handlerFunc func(db *sql.DB, w http.ResponseWriter, r *http.Request), authRequired bool) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			// Authentication check if required
-			if authRequired {
-				if !isUserLoggedIn(w, r) {
-					return
-				}
-			}
-
-			handlerFunc(db, w, r)
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isUserLoggedIn(w, r) {
+			return
 		}
-	}
+		next.ServeHTTP(w, r)
+	})
+}
 
-	http.HandleFunc("/signup", wrapHandler(handler.Signup, false))        // @router /signup [post]
-	http.HandleFunc("/login", wrapHandler(handler.Login, false))          // @router /login [post]
-	http.HandleFunc("/verify-otp", wrapHandler(handler.VerifyOTP, false)) // @router /verify-otp [post]
-	http.HandleFunc("/swipe", wrapHandler(handler.Swipe, true))       // @router /swipe [post]
-	http.HandleFunc("/purchase", wrapHandler(handler.Purchase, true)) // @router /purchase [post]
-	http.HandleFunc("/cards", wrapHandler(handler.Card, true))      // @router /cards [get]
-	
-	// Define routes for package CRUD operations using Gorilla Mux
+func Routes(db *sql.DB) {
+	// Create a new router
 	router := mux.NewRouter()
-	router.HandleFunc("/packages/create", wrapHandler(handler.CreatePackage, true)).Methods("POST")
-	router.HandleFunc("/packages", wrapHandler(handler.GetPackage, true)).Methods("GET")
-	router.HandleFunc("/packages/edit/{id}", wrapHandler(handler.UpdatePackage, true)).Methods("PUT")
-	router.HandleFunc("/packages/delete/{id}", wrapHandler(handler.DeletePackage, true)).Methods("PATCH")
+
+	// Public routes
+	router.HandleFunc("/signup", handler.Signup(db)).Methods("POST")
+	router.HandleFunc("/login", handler.Login(db)).Methods("POST")
+	router.HandleFunc("/verify-otp", handler.VerifyOTP(db)).Methods("POST")
+
+	// Create a subrouter for authenticated routes
+	authenticatedRouter := router.NewRoute().Subrouter()
+	authenticatedRouter.Use(authMiddleware)
+
+	// Define authenticated routes
+	authenticatedRouter.HandleFunc("/swipe", handler.Swipe(db)).Methods("POST")
+	authenticatedRouter.HandleFunc("/purchase", handler.Purchase(db)).Methods("POST")
+	authenticatedRouter.HandleFunc("/cards", handler.Card(db)).Methods("GET")
+
+	// Create a subrouter for package-related routes that require authentication
+	packagesRouter := router.PathPrefix("/packages").Subrouter()
+	packagesRouter.Use(authMiddleware)
+
+	// Define package-related routes using the packagesRouter
+	packagesRouter.HandleFunc("/create", handler.CreatePackage(db)).Methods("POST")
+	packagesRouter.HandleFunc("", handler.GetPackage(db)).Methods("GET")
+	packagesRouter.HandleFunc("/edit/{id}", handler.UpdatePackage(db)).Methods("PUT")
+	packagesRouter.HandleFunc("/delete/{id}", handler.DeletePackage(db)).Methods("PATCH")
+
+	// Enable CORS for all routes
+	corsRouter := middleware.EnableCORSMux(router)
+
+	// Use the corsRouter for handling requests
+	http.Handle("/", corsRouter)
 
 	// Serve Swagger UI
 	http.Handle("/swagger/", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"), // The URL pointing to API definition
 	))
-
-	// Enable CORS for all routes
-	http.Handle("/", middleware.EnableCORS(http.DefaultServeMux))
-	http.Handle("/packages/create", middleware.EnableCORSMux(router))
-	http.Handle("/packages", middleware.EnableCORSMux(router))
-	http.Handle("/packages/edit/{id}", middleware.EnableCORSMux(router))
-	http.Handle("/packages/delete/{id}", middleware.EnableCORSMux(router))
 }

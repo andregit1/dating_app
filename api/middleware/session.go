@@ -35,12 +35,12 @@ func Authentication(next http.Handler) http.Handler {
 }
 
 // CurrentUserID retrieves the current user ID from the context
-func CurrentUserID(r *http.Request) (int, error) {
+func CurrentUserID(r *http.Request) int {
 	userID, ok := r.Context().Value(userIDKey).(int)
 	if !ok {
-		return 0, http.ErrNoCookie
+		return 0
 	}
-	return userID, nil
+	return userID
 }
 
 func SetupSession(store *sessions.CookieStore) mux.MiddlewareFunc {

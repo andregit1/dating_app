@@ -25,49 +25,51 @@ import (
 // @Failure 400 {string} string "Invalid OTP"
 // @Failure 500 {string} string "Internal server error"
 // @Router /verify-otp [post]
-func VerifyOTP(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	var (
-		store = sessions.NewCookieStore([]byte("super-secret-key"))
-		payload payload.OTP
-	)
+func VerifyOTP(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var (
+			store = sessions.NewCookieStore([]byte("super-secret-key"))
+			payload payload.OTP
+		)
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		phoneNumber := payload.Data.PhoneNumber
+		otp := payload.Data.OTP
+
+		var userID int
+		var otpHash string
+		err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&userID)
+		if err != nil {
+			http.Error(w, "Invalid phone number", http.StatusBadRequest)
+			return
+		}
+
+		err = db.QueryRow("SELECT otp_hash FROM otp_auth WHERE user_id = $1", userID).Scan(&otpHash)
+		if err != nil {
+			http.Error(w, "OTP not found", http.StatusBadRequest)
+			return
+		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(otpHash), []byte(otp))
+		if err != nil {
+			http.Error(w, "Invalid OTP", http.StatusBadRequest)
+			return
+		}
+
+		// OTP verified, create session
+		session, _ := store.Get(r, "session-name")
+		session.Values["user_id"] = userID
+		err = session.Save(r, w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OTP verified successfully"))
 	}
-
-	phoneNumber := payload.Data.PhoneNumber
-	otp := payload.Data.OTP
-
-	var userID int
-	var otpHash string
-	err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&userID)
-	if err != nil {
-		http.Error(w, "Invalid phone number", http.StatusBadRequest)
-		return
-	}
-
-	err = db.QueryRow("SELECT otp_hash FROM otp_auth WHERE user_id = $1", userID).Scan(&otpHash)
-	if err != nil {
-		http.Error(w, "OTP not found", http.StatusBadRequest)
-		return
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(otpHash), []byte(otp))
-	if err != nil {
-		http.Error(w, "Invalid OTP", http.StatusBadRequest)
-		return
-	}
-
-	// OTP verified, create session
-	session, _ := store.Get(r, "session-name")
-	session.Values["user_id"] = userID
-	err = session.Save(r, w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OTP verified successfully"))
 }

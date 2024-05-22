@@ -26,31 +26,33 @@ import (
 // @Failure 400 {string} string "Invalid request format"
 // @Failure 401 {string} string "Invalid phone number"
 // @Router /login [post]
-func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	var payload payload.Entry
+func Login(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var payload payload.Entry
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var user model.User
+		phoneNumber := payload.Data.PhoneNumber
+		err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&user.ID)
+		if err != nil {
+			http.Error(w, "invalid phone number", http.StatusUnauthorized)
+			return
+		}
+
+		otp := utils.GenerateOTP()
+		err = utils.SaveOTP(db, user.ID, otp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Here, you would send the OTP to the user's phone number via an SMS service
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response.OTP{OTP: otp})
 	}
-
-	var user model.User
-	phoneNumber := payload.Data.PhoneNumber
-	err := db.QueryRow("SELECT id FROM users WHERE phone_number = $1", phoneNumber).Scan(&user.ID)
-	if err != nil {
-		http.Error(w, "invalid phone number", http.StatusUnauthorized)
-		return
-	}
-
-	otp := utils.GenerateOTP()
-	err = utils.SaveOTP(db, user.ID, otp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Here, you would send the OTP to the user's phone number via an SMS service
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response.OTP{OTP: otp})
 }

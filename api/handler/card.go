@@ -6,8 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/sessions"
-
+	"dating_app/api/middleware"
 	"dating_app/pkg/model"
 )
 
@@ -24,31 +23,25 @@ var (
 // @Failure 400 {string} string "Invalid request"
 // @Failure 500 {string} string "Internal server error"
 // @Router /cards [get]
-func Card(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	var store = sessions.NewCookieStore([]byte("super-secret-key"))
-	session, _ := store.Get(r, "session-name")
+func Card(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := middleware.CurrentUserID(r)
 
-	// Check if card is authenticated
-	userID, ok := session.Values["user_id"].(int)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		preferences, err := getCardPreferences(db, userID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		cards, err := getCardsBasedOnPreferences(db, preferences)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(cards)
 	}
-
-	preferences, err := getCardPreferences(db, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	cards, err := getCardsBasedOnPreferences(db, preferences)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(cards)
 }
 
 // getCardPreferences retrieves the preferences of the logged-in card
