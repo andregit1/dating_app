@@ -19,6 +19,8 @@ This project is a backend system for a dating mobile app similar to Tinder/Bumbl
 - **bcrypt**: For hashing OTPs.
 - **httpSwagger**: For serving the Swagger UI.
 
+---
+
 ## Project Setup Guide
 
 This guide helps you set up the necessary environment to run the project locally.
@@ -240,7 +242,9 @@ Unit tests can be added in the \*\_test.go files and executed using:
 go  test  ./...
 ```
 
-#### Sequence Diagram
+---
+
+### Sequence Diagram
 
 This sequence diagram demonstrates the interaction between the components for the login flow:
 
@@ -364,7 +368,9 @@ sequenceDiagram
 
 ```
 
-#### Functional Requirements
+---
+
+### Functional Requirements
 
 - User can sign up using their phone number.
 
@@ -376,7 +382,7 @@ sequenceDiagram
 
 - Users cannot see the same profile more than once in a day.
 
-##### Non-Functional Requirements
+#### Non-Functional Requirements
 
 - Scalability: The system should handle a large number of users and swipes.
 
@@ -384,7 +390,7 @@ sequenceDiagram
 
 - Performance: The system should respond quickly to user actions.
 
-##### Test Cases
+### Test Cases
 
 - Signup Tests: Verify that a new user can sign up with a valid phone number.
 
@@ -397,6 +403,8 @@ sequenceDiagram
 - Purchase Tests: Verify that purchasing premium membership updates the user status correctly.
 
 - Package Tests: Verify that CRUD operations on packages work correctly.
+
+---
 
 ### Future Enhancements
 
